@@ -1,5 +1,5 @@
 
-![Logo](https://i.ibb.co/6JP4V5BP/1024x1024.png)
+![Logo](https://i.ibb.co/jPXN57hK/256x256.png)
 
 
 # Nova
