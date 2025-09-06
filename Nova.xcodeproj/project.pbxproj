@@ -7,13 +7,26 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		9C739EE62E5CE09D005A6EC6 /* projectmanager.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = projectmanager.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9C739EE62E5CE09D005A6EC6 /* Nova.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nova.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		9C59DB912E6B4A2B00877E18 /* Exceptions for "Nova" folder in "Nova" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 9C739EE52E5CE09D005A6EC6 /* Nova */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		9C739EE82E5CE09D005A6EC6 /* projectmanager */ = {
+		9C739EE82E5CE09D005A6EC6 /* Nova */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = projectmanager;
+			exceptions = (
+				9C59DB912E6B4A2B00877E18 /* Exceptions for "Nova" folder in "Nova" target */,
+			);
+			path = Nova;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +45,7 @@
 		9C739EDD2E5CE09D005A6EC6 = {
 			isa = PBXGroup;
 			children = (
-				9C739EE82E5CE09D005A6EC6 /* projectmanager */,
+				9C739EE82E5CE09D005A6EC6 /* Nova */,
 				9C739EE72E5CE09D005A6EC6 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -40,7 +53,7 @@
 		9C739EE72E5CE09D005A6EC6 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				9C739EE62E5CE09D005A6EC6 /* projectmanager.app */,
+				9C739EE62E5CE09D005A6EC6 /* Nova.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,9 +61,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		9C739EE52E5CE09D005A6EC6 /* projectmanager */ = {
+		9C739EE52E5CE09D005A6EC6 /* Nova */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 9C739EF22E5CE09E005A6EC6 /* Build configuration list for PBXNativeTarget "projectmanager" */;
+			buildConfigurationList = 9C739EF22E5CE09E005A6EC6 /* Build configuration list for PBXNativeTarget "Nova" */;
 			buildPhases = (
 				9C739EE22E5CE09D005A6EC6 /* Sources */,
 				9C739EE32E5CE09D005A6EC6 /* Frameworks */,
@@ -61,13 +74,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				9C739EE82E5CE09D005A6EC6 /* projectmanager */,
+				9C739EE82E5CE09D005A6EC6 /* Nova */,
 			);
-			name = projectmanager;
+			name = Nova;
 			packageProductDependencies = (
 			);
 			productName = projectmanager;
-			productReference = 9C739EE62E5CE09D005A6EC6 /* projectmanager.app */;
+			productReference = 9C739EE62E5CE09D005A6EC6 /* Nova.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -85,7 +98,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 9C739EE12E5CE09D005A6EC6 /* Build configuration list for PBXProject "projectmanager" */;
+			buildConfigurationList = 9C739EE12E5CE09D005A6EC6 /* Build configuration list for PBXProject "Nova" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -99,7 +112,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				9C739EE52E5CE09D005A6EC6 /* projectmanager */,
+				9C739EE52E5CE09D005A6EC6 /* Nova */,
 			);
 		};
 /* End PBXProject section */
@@ -250,7 +263,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = projectmanager/projectmanager.entitlements;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = Nova/Nova.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -258,13 +273,16 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Nova/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Nova;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = tv.parallelstudio.projectmanager;
+				PRODUCT_BUNDLE_IDENTIFIER = fr.maximedondon.nova;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -277,7 +295,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = projectmanager/projectmanager.entitlements;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CODE_SIGN_ENTITLEMENTS = Nova/Nova.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
@@ -285,13 +305,16 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Nova/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Nova;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = tv.parallelstudio.projectmanager;
+				PRODUCT_BUNDLE_IDENTIFIER = fr.maximedondon.nova;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -302,7 +325,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		9C739EE12E5CE09D005A6EC6 /* Build configuration list for PBXProject "projectmanager" */ = {
+		9C739EE12E5CE09D005A6EC6 /* Build configuration list for PBXProject "Nova" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9C739EF02E5CE09E005A6EC6 /* Debug */,
@@ -311,7 +334,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		9C739EF22E5CE09E005A6EC6 /* Build configuration list for PBXNativeTarget "projectmanager" */ = {
+		9C739EF22E5CE09E005A6EC6 /* Build configuration list for PBXNativeTarget "Nova" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9C739EF32E5CE09E005A6EC6 /* Debug */,
