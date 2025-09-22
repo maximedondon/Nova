@@ -18,7 +18,7 @@ struct ProjectDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 20) {
                 titleHeader
                 Divider()
                 if !project.isEditing && !project.tags.isEmpty {
@@ -103,11 +103,6 @@ struct ProjectDetailView: View {
                 .focused($titleFocused)
                 .allowsHitTesting(project.isEditing)
                 .opacity(1)
-            if !project.details.isEmpty {
-                Text(project.details)
-                    .font(.title3)
-                    .foregroundStyle(.secondary)
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.bottom, 4)
@@ -155,7 +150,7 @@ struct ProjectDetailView: View {
             }.padding(10)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.white)
+                    .fill(.background)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -206,7 +201,7 @@ struct ProjectDetailView: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.white)
+                .fill(.background)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -251,7 +246,7 @@ struct ProjectDetailView: View {
             }.padding(10)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(Color.white)
+                    .fill(.background)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -366,7 +361,6 @@ struct ProjectDetailView: View {
 #Preview {
     ProjectDetailView(project: Project(
         title: "Spot TV",
-        details: "Campagne automne",
         rootFolder: URL(fileURLWithPath: "/Users/moi/Documents/SpotTV"),
         isEditing: true,
         tags: [.troisD, .freelance],

@@ -81,7 +81,7 @@ struct Sidebar: View {
                 Button {
                     isSettingsPresented.toggle()
                 } label: {
-                    Label("Paramètres", systemImage: "gear")
+                    Label("Paramètres", systemImage: "gearshape")
                 }
             }
         }
