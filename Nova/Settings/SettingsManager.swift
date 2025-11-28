@@ -51,9 +51,10 @@ class SettingsManager: ObservableObject {
         }
     }
 
-    func startAccessingFolder() {
-        guard let url = _resolvedURL, !_accessing else { return }
+    func startAccessingFolder() -> Bool {
+        guard let url = _resolvedURL, !_accessing else { return false }
         _accessing = url.startAccessingSecurityScopedResource()
+        return _accessing
     }
 
     func stopAccessingFolder() {
@@ -62,4 +63,3 @@ class SettingsManager: ObservableObject {
         _accessing = false
     }
 }
-

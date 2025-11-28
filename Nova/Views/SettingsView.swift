@@ -49,7 +49,12 @@ struct SettingsView: View {
                         }
                         Spacer()
                         Button("Changer") {
-                            folder = FSHelper.pickDirectory()
+                            if let picked = FSHelper.pickDirectory(startingAt: SettingsManager.shared.projectsFolder) {
+                                folder = picked
+                                SettingsManager.shared.setProjectsFolder(picked)
+                                // refresh store using EnvironmentObject
+                                store.scanForExistingProjects()
+                            }
                         }
                 }
                 Divider()
