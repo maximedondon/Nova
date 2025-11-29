@@ -8,3 +8,5 @@
       location = "group:PreferencesView.swift">
    </FileRef>
 </Workspace>
+
+// This file intentionally left blank. The real PreferencesView is in ../Nova/PreferencesView.swift

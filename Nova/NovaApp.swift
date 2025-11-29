@@ -1,9 +1,3 @@
-//
-//  NovaApp.swift
-//
-//  Created by Maxime Dondon on 25/08/2025.
-//
-
 import SwiftUI
 
 @main
@@ -15,6 +9,10 @@ struct AEPManagerApp: App {
             ContentView()
                 .environmentObject(store)
         }
-        .windowToolbarStyle(.unified) // apparence moderne
+
+        Settings {
+            PreferencesView()
+                .environmentObject(store)
+        }
     }
 }

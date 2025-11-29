@@ -16,6 +16,10 @@ struct ProjectDetailView: View {
     @State private var showAEConfirm: Bool = false
     @FocusState private var titleFocused: Bool
 
+    // Notes locale pour édition en continu
+    @State private var notesDraft: String = ""
+    @State private var notesSaveWorkItem: DispatchWorkItem?
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -33,46 +37,57 @@ struct ProjectDetailView: View {
                 } else {
                     viewForm
                 }
+
+                // --- Zone de notes (toujours éditable) ---
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Notes")
+                            .padding(.leading, 10)
+                        Spacer()
+                        if project.rootFolder != nil {
+                            Text("Enregistré automatiquement")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.trailing, 10)
+                        }
+                    }
+                    
+                    
+                    VStack(alignment: .leading) {
+                        
+                        TextEditor(text: $notesDraft)
+                            .padding(12)
+                            .scrollContentBackground(.hidden)
+                            .frame(minHeight: 200, maxHeight: 400)
+                            .onChange(of: notesDraft) { _, newValue in
+                                // Cancel any pending save
+                                notesSaveWorkItem?.cancel()
+                                let workItem = DispatchWorkItem { [weak project] in
+                                    guard let project = project else { return }
+                                    DispatchQueue.main.async {
+                                        project.notes = newValue
+                                        project.saveToFolder()
+                                    }
+                                }
+                                notesSaveWorkItem = workItem
+                                DispatchQueue.global().asyncAfter(deadline: .now() + 0.8, execute: workItem)
+                            }
+                            .onAppear {
+                                notesDraft = project.notes
+                            }
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.gray.opacity(0.1))
+                    )
+                }
+                .padding(.top, 6)
+
             }
             .padding(20)
         }
-        .navigationTitle(project.title)
-        .toolbar {
-            ToolbarItemGroup {
-                // Bouton ouvrir dossier
-                if project.rootFolder != nil {
-                    Button {
-                        openProjectFolder()
-                    } label: {
-                        Label("Ouvrir dossier", systemImage: "folder")
-                    }
-                }
-
-                if project.isEditing {
-                    Button {
-                        save()
-                    } label: {
-                        Label("Sauvegarder", systemImage: "checkmark.circle")
-                    }
-                    .keyboardShortcut(.return, modifiers: [.command])
-
-                    Button {
-                        cancelEditing()
-                    } label: {
-                        Label("Annuler", systemImage: "xmark.circle")
-                    }
-                } else {
-                    Button {
-                        project.isEditing = true
-                        titleFocused = true
-                    } label: {
-                        Label("Modifier", systemImage: "pencil")
-                    }
-                }
-            }
-        }
-        .onChange(of: project.isEditing) {
-            if project.isEditing {
+        .onChange(of: project.isEditing) { _, newValue in
+            if newValue {
                 DispatchQueue.main.async { titleFocused = true }
             } else {
                 titleFocused = false
@@ -96,16 +111,54 @@ struct ProjectDetailView: View {
     // MARK: - Header Title
 
     private var titleHeader: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextField("Nouveau projet", text: $project.title)
-                .font(.largeTitle.bold())
-                .textFieldStyle(.plain)
-                .focused($titleFocused)
-                .allowsHitTesting(project.isEditing)
-                .opacity(1)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 8) {
+                TextField("Nouveau projet", text: $project.title)
+                    .font(.largeTitle.bold())
+                    .textFieldStyle(.plain)
+                    .focused($titleFocused)
+                    .allowsHitTesting(project.isEditing)
+                    .opacity(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 4)
+
+            // Actions déplacées ici (à droite du titre)
+            HStack(spacing: 8) {
+                if project.rootFolder != nil {
+                    Button(action: { openProjectFolder() }) {
+                        Image(systemName: "folder")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Ouvrir le dossier du projet")
+                }
+                
+
+                if project.isEditing {
+                    Divider()
+
+                    Button(action: { save() }) {
+                        Image(systemName: "checkmark.circle")
+                    }
+                    .keyboardShortcut(.return, modifiers: [.command])
+                    .buttonStyle(.plain)
+                    .help("Sauvegarder")
+
+                    Button(action: { cancelEditing() }) {
+                        Image(systemName: "xmark.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Annuler")
+                }
+                // Editing is handled from the toolbar; do not show the pencil here.
+            }
+            .font(.title2)
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 100, style: .continuous)
+                    .fill(Color.gray.opacity(0.1))
+            )
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.bottom, 4)
     }
 
     // MARK: - Tags affichage lecture
@@ -150,11 +203,7 @@ struct ProjectDetailView: View {
             }.padding(10)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(.background)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    .fill(Color.gray.opacity(0.1))
             )
         }
     }
@@ -201,11 +250,7 @@ struct ProjectDetailView: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(.background)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                .fill(Color.gray.opacity(0.1))
         )
     }
 
@@ -246,11 +291,7 @@ struct ProjectDetailView: View {
             }.padding(10)
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(.background)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                    .fill(Color.gray.opacity(0.1))
             )
         }
     }
@@ -258,7 +299,7 @@ struct ProjectDetailView: View {
     // MARK: - Actions logiques
 
     private func openProjectFolder() {
-        SettingsManager.shared.startAccessingFolder()
+        _ = SettingsManager.shared.startAccessingFolder()
         defer { SettingsManager.shared.stopAccessingFolder() }
         guard let root = project.rootFolder, FSHelper.exists(at: root) else {
             show("Dossier introuvable", "Impossible d'ouvrir le dossier du projet.")
@@ -268,7 +309,7 @@ struct ProjectDetailView: View {
     }
 
     private func openLatestAEP() {
-        SettingsManager.shared.startAccessingFolder()
+        _ = SettingsManager.shared.startAccessingFolder()
         defer { SettingsManager.shared.stopAccessingFolder() }
         guard let aepFolder = project.aepFolder, FSHelper.exists(at: aepFolder) else {
             show("Dossier AEP introuvable", "Le dossier “06 AEP” est introuvable sous le dossier du projet.")
@@ -282,7 +323,7 @@ struct ProjectDetailView: View {
     }
 
     private func openAssets() {
-        SettingsManager.shared.startAccessingFolder()
+        _ = SettingsManager.shared.startAccessingFolder()
         defer { SettingsManager.shared.stopAccessingFolder() }
         guard let folder = project.assetsFolder, FSHelper.exists(at: folder) else {
             show("Dossier introuvable", "Impossible d'ouvrir les assets.")
@@ -292,7 +333,7 @@ struct ProjectDetailView: View {
     }
 
     private func openOutputs() {
-        SettingsManager.shared.startAccessingFolder()
+        _ = SettingsManager.shared.startAccessingFolder()
         defer { SettingsManager.shared.stopAccessingFolder() }
         guard let folder = project.outputsFolder, FSHelper.exists(at: folder) else {
             show("Dossier introuvable", "Impossible d'ouvrir les sorties.")
@@ -319,7 +360,7 @@ struct ProjectDetailView: View {
             show("Dossier racine manquant", "Veuillez paramétrer le dossier de projets dans les réglages.")
             return
         }
-        SettingsManager.shared.startAccessingFolder()
+        _ = SettingsManager.shared.startAccessingFolder()
         defer { SettingsManager.shared.stopAccessingFolder() }
         guard FSHelper.exists(at: root) else {
             show("Dossier racine inaccessible", "Le dossier de projets n'existe pas ou n'est pas accessible.")

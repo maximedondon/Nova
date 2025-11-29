@@ -41,6 +41,12 @@ class ProjectStore: ObservableObject {
     func addProject() {
         let newProject = Project()
 
+        // If the user currently has a category selected (not the special "Tous" category),
+        // assign the new project to that category by default.
+        if selectedCategoryID != ProjectCategory.all.id {
+            newProject.categoryID = selectedCategoryID
+        }
+
         // Accès sécurisé au dossier parent
         let didStart = SettingsManager.shared.startAccessingFolder()
         do {
@@ -211,10 +217,38 @@ class ProjectStore: ObservableObject {
             if didStart { SettingsManager.shared.stopAccessingFolder() }
         }
 
+        // Also remove it from in-memory data structures (projects array and per-category cache)
         DispatchQueue.main.async {
+            // remove from global list
             if let idx = self.projects.firstIndex(where: { $0.id == project.id }) {
                 self.projects.remove(at: idx)
             }
+
+            // determine category key used in cache (if nil, it was stored under .all id)
+            let catKey = project.categoryID ?? ProjectCategory.all.id
+            // remove from category cache if present
+            if var arr = self.projectsByCategory[catKey] {
+                arr.removeAll(where: { $0.id == project.id })
+                if arr.isEmpty {
+                    self.projectsByCategory.removeValue(forKey: catKey)
+                } else {
+                    self.projectsByCategory[catKey] = arr
+                }
+            }
+
+            // also ensure the project isn't lingering in the 'all' bucket if it was elsewhere
+            if catKey != ProjectCategory.all.id {
+                if var allArr = self.projectsByCategory[ProjectCategory.all.id] {
+                    allArr.removeAll(where: { $0.id == project.id })
+                    if allArr.isEmpty {
+                        self.projectsByCategory.removeValue(forKey: ProjectCategory.all.id)
+                    } else {
+                        self.projectsByCategory[ProjectCategory.all.id] = allArr
+                    }
+                }
+            }
+
+            // clear selection if needed
             if self.selection == project.id { self.selection = nil }
             self.objectWillChange.send()
         }

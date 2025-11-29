@@ -40,6 +40,7 @@ class Project: ObservableObject, Identifiable, Codable {
     let id: UUID
     @Published var title: String
     @Published var details: String
+    @Published var notes: String
     @Published var rootFolder: URL?
     @Published var isEditing: Bool
     @Published var tags: [ProjectTag]
@@ -49,7 +50,7 @@ class Project: ObservableObject, Identifiable, Codable {
     @Published var isFullyLoaded: Bool = true
 
     enum CodingKeys: String, CodingKey {
-        case id, title, details, tags, status, categoryID
+        case id, title, details, notes, tags, status, categoryID
     }
 
     required init(from decoder: Decoder) throws {
@@ -57,6 +58,7 @@ class Project: ObservableObject, Identifiable, Codable {
         self.id = try container.decode(UUID.self, forKey: .id)
         self.title = try container.decode(String.self, forKey: .title)
         self.details = try container.decode(String.self, forKey: .details)
+        self.notes = try container.decodeIfPresent(String.self, forKey: .notes) ?? ""
         self.tags = try container.decode([ProjectTag].self, forKey: .tags)
         self.status = try container.decode(ProjectStatus.self, forKey: .status)
         self.categoryID = try container.decodeIfPresent(UUID.self, forKey: .categoryID)
@@ -70,6 +72,7 @@ class Project: ObservableObject, Identifiable, Codable {
         try container.encode(id, forKey: .id)
         try container.encode(title, forKey: .title)
         try container.encode(details, forKey: .details)
+        try container.encode(notes, forKey: .notes)
         try container.encode(tags, forKey: .tags)
         try container.encode(status, forKey: .status)
         try container.encodeIfPresent(categoryID, forKey: .categoryID)
@@ -78,6 +81,7 @@ class Project: ObservableObject, Identifiable, Codable {
     init(
         title: String = "Nouveau projet",
         details: String = "",
+        notes: String = "",
         rootFolder: URL? = nil,
         isEditing: Bool = true,
         tags: [ProjectTag] = [],
@@ -87,6 +91,7 @@ class Project: ObservableObject, Identifiable, Codable {
         self.id = id
         self.title = title
         self.details = details
+        self.notes = notes
         self.rootFolder = rootFolder
         self.isEditing = isEditing
         self.tags = tags
@@ -122,11 +127,13 @@ class Project: ObservableObject, Identifiable, Codable {
                 var title: String?
                 var status: ProjectStatus?
                 var categoryID: UUID?
+                var notes: String?
             }
             let meta = try decoder.decode(Meta.self, from: data)
             let project = Project(
                 title: meta.title ?? "Nouveau projet",
                 details: "",
+                notes: meta.notes ?? "",
                 rootFolder: url,
                 isEditing: false,
                 tags: [],
@@ -147,6 +154,11 @@ class Project: ObservableObject, Identifiable, Codable {
         guard !isFullyLoaded, let folder = rootFolder else { return }
         let jsonURL = folder.appendingPathComponent("project.json")
         DispatchQueue.global(qos: .userInitiated).async {
+            // Ensure we have security-scoped access to the projects folder while reading
+            let didStart = SettingsManager.shared.startAccessingFolder()
+            defer {
+                if didStart { SettingsManager.shared.stopAccessingFolder() }
+            }
             do {
                 let data = try Data(contentsOf: jsonURL)
                 let decoder = JSONDecoder()
@@ -154,6 +166,7 @@ class Project: ObservableObject, Identifiable, Codable {
                 DispatchQueue.main.async {
                     self.title = full.title
                     self.details = full.details
+                    self.notes = full.notes
                     self.tags = full.tags
                     self.status = full.status
                     self.categoryID = full.categoryID
@@ -168,6 +181,11 @@ class Project: ObservableObject, Identifiable, Codable {
     func saveToFolder() {
         guard let folder = rootFolder else { return }
         let jsonURL = folder.appendingPathComponent("project.json")
+        // Ensure we have security-scoped access to the projects folder while writing
+        let didStart = SettingsManager.shared.startAccessingFolder()
+        defer {
+            if didStart { SettingsManager.shared.stopAccessingFolder() }
+        }
         do {
             let encoder = JSONEncoder()
             let data = try encoder.encode(self)
