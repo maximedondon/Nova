@@ -46,7 +46,7 @@ struct OnboardingView: View {
                 ) {
                     guard let folder = selectedFolder else { return }
                     SettingsManager.shared.setProjectsFolder(folder)
-                    store.scanForExistingProjects()
+                    store.syncWithProjectsFolder()
                     isPresented = false
                 }
             }

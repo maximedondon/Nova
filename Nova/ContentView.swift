@@ -16,6 +16,7 @@ struct ContentView: View {
     @FocusState private var focusedCategoryID: UUID?
     @State private var showDeleteConfirm: Bool = false
     @State private var projectToDelete: UUID? = nil
+    @State private var showCreateProjectView: Bool = false
 
     // Search state in toolbar
     @State private var searchText: String = ""
@@ -33,7 +34,7 @@ struct ContentView: View {
             if SettingsManager.shared.projectsFolder == nil {
                 showOnboarding = true
             } else {
-                store.scanForExistingProjects()
+                store.syncWithProjectsFolder()
                 localSelectedCategoryID = store.selectedCategoryID
                 localSelection = store.selection
             }
@@ -51,51 +52,48 @@ struct ContentView: View {
         .sheet(isPresented: $showOnboarding) {
             OnboardingView(isPresented: $showOnboarding)
         }
-        .alert("Supprimer le projet?", isPresented: $showDeleteConfirm, actions: {
-            Button("Supprimer", role: .destructive) {
+        .confirmationDialog(
+            "Supprimer le projet",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Supprimer de l'app uniquement") {
                 if let id = projectToDelete {
-                    store.deleteProject(withId: id)
+                    store.deleteProject(withId: id, deleteFolderOnDisk: false)
                     projectToDelete = nil
                 }
             }
+            
+            Button("Supprimer de l'app et du disque", role: .destructive) {
+                if let id = projectToDelete {
+                    store.deleteProject(withId: id, deleteFolderOnDisk: true)
+                    projectToDelete = nil
+                }
+            }
+            
             Button("Annuler", role: .cancel) {
                 projectToDelete = nil
             }
-        }, message: {
-            Text("Cette action supprimera le dossier du projet et toutes ses données. Êtes-vous sûr(e) ?")
-        })
+        } message: {
+            Text("Voulez-vous supprimer uniquement le projet de Nova ou également supprimer tous les fichiers du disque ?")
+        }
+        .sheet(isPresented: $showCreateProjectView) {
+            CreateProjectView { newProjectID in
+                startEditingProject(newProjectID)
+            }
+            .environmentObject(store)
+        }
         .toolbar {
             // Action buttons as separate toolbar items to ensure visibility
             ToolbarItem(placement: .automatic) {
                 Button(action: {
-                    store.addProject()
-                    // After store sets the selection, start editing the new project
-                    DispatchQueue.main.async {
-                        if let newId = store.selection {
-                            startEditingProject(newId)
-                        }
-                    }
+                    showCreateProjectView = true
                 }) {
                     Image(systemName: "plus")
                 }
                 .buttonStyle(.plain)
                 .help("Nouveau projet")
                 .keyboardShortcut("n", modifiers: .command)
-                .padding(.horizontal, 12)
-            }
-
-            ToolbarItem(placement: .automatic) {
-                Button(action: {
-                    if let sel = store.selection {
-                        startEditingProject(sel)
-                    }
-                }) {
-                    Image(systemName: "pencil")
-                }
-                .buttonStyle(.plain)
-                .help("Modifier le projet sélectionné")
-                .disabled(store.selection == nil)
-                .keyboardShortcut("e", modifiers: .command)
                 .padding(.horizontal, 12)
             }
         }
@@ -113,30 +111,22 @@ struct ContentView: View {
                                 selectedCategoryID: $localSelectedCategoryID)
                         .environmentObject(store)
                 }
-
-                Divider()
-
-                Button {
-                    let new = store.addCategory()
-                    // Enter edit mode immediately
-                    editingCategoryID = new.id
-                    editingText = new.name
-                    localSelectedCategoryID = new.id
-                    focusedCategoryID = new.id
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus")
-                        Text("Nouveau")
-                    }
-                    .padding(.vertical, 0)
-                    .padding(.horizontal, 6)
-                    .foregroundStyle(.primary)
-                }
-                .buttonStyle(.plain)
+                
+                // Spacer invisible pour étendre la zone cliquable
+                Color.clear
+                    .frame(height: 0)
+                    .listRowBackground(Color.clear)
             }
         }
         .listStyle(.sidebar)
         .frame(minWidth: 160, idealWidth: 220, maxWidth: 300)
+        .contextMenu {
+            Button {
+                createNewCategory()
+            } label: {
+                Label("Nouvelle catégorie", systemImage: "plus")
+            }
+        }
     }
 
     // MARK: - Content: Projects
@@ -156,6 +146,12 @@ struct ContentView: View {
                         withTransaction(Transaction(animation: nil)) { store.selection = id }
                     })
                     .contextMenu {
+                        Button {
+                            startEditingProject(project.id)
+                        } label: { Label("Renommer", systemImage: "pencil") }
+                        
+                        Divider()
+                        
                         Button(role: .destructive) {
                             projectToDelete = project.id
                             showDeleteConfirm = true
@@ -175,9 +171,6 @@ struct ContentView: View {
         Group {
             if let project = store.project(with: store.selection) {
                 ProjectDetailView(project: project)
-                    .task {
-                        if !project.isFullyLoaded { project.loadFullFromDisk() }
-                    }
             } else {
                 PlaceholderDetail()
             }
@@ -192,6 +185,7 @@ struct SidebarRow: View {
     let categoryName: String?
     let categoryImage: String?
     var onSelect: (UUID) -> Void
+    @EnvironmentObject var store: ProjectStore
 
     var body: some View {
         VStack(alignment: .leading) {
@@ -203,13 +197,15 @@ struct SidebarRow: View {
             .buttonStyle(.plain)
 
             HStack(spacing: 6) {
-                Text(project.status.rawValue)
-                    .font(.caption2)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(project.status.color.opacity(0.2))
-                    .foregroundColor(project.status.color)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                if let status = store.status(with: project.statusID) {
+                    Text(status.name)
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(status.color.opacity(0.2))
+                        .foregroundColor(status.color)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                }
             }
             if let cname = categoryName, let image = categoryImage {
                 Label(cname, systemImage: image)
@@ -346,5 +342,14 @@ extension ContentView {
                 proj.isEditing = true
             }
         }
+    }
+    
+    fileprivate func createNewCategory() {
+        let new = store.addCategory()
+        // Enter edit mode immediately
+        editingCategoryID = new.id
+        editingText = new.name
+        localSelectedCategoryID = new.id
+        focusedCategoryID = new.id
     }
 }

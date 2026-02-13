@@ -23,14 +23,41 @@ class ProjectStore: ObservableObject {
 
     @Published var categories: [ProjectCategory] = [ProjectCategory.all]
     @Published var selectedCategoryID: UUID = ProjectCategory.all.id
+    
+    @Published var statuses: [ProjectStatus] = []
 
     // Cache to quickly lookup projects per category to avoid repeated filtering
     private var projectsByCategory: [UUID: [Project]] = [:]
 
     private let categoriesKey = "categories.v1"
+    private let statusesKey = "statuses.v1"
 
     init() {
         loadCategories()
+        loadStatuses()
+        loadProjects()
+    }
+    
+    // MARK: - Persistence
+    
+    /// Charge les projets depuis le stockage centralisé
+    private func loadProjects() {
+        projects = PersistenceManager.shared.loadProjects()
+        rebuildProjectsByCategory()
+    }
+    
+    /// Sauvegarde tous les projets dans le stockage centralisé
+    func saveProjects() {
+        PersistenceManager.shared.saveProjects(projects)
+    }
+    
+    /// Reconstruit le cache projectsByCategory
+    private func rebuildProjectsByCategory() {
+        projectsByCategory = [:]
+        for p in projects {
+            let cat = p.categoryID ?? ProjectCategory.all.id
+            projectsByCategory[cat, default: []].append(p)
+        }
     }
 
     var filteredProjects: [Project] {
@@ -38,7 +65,7 @@ class ProjectStore: ObservableObject {
         return projectsByCategory[selectedCategoryID] ?? []
     }
 
-    func addProject() {
+    func addProject(createFolderStructure: Bool = false, in folder: ProjectFolder? = nil) {
         let newProject = Project()
 
         // If the user currently has a category selected (not the special "Tous" category),
@@ -47,19 +74,22 @@ class ProjectStore: ObservableObject {
             newProject.categoryID = selectedCategoryID
         }
 
-        // Accès sécurisé au dossier parent
-        let didStart = SettingsManager.shared.startAccessingFolder()
-        do {
-            if let parent = SettingsManager.shared.projectsFolder {
-                let safeName = FSHelper.sanitizedFolderName(from: newProject.title)
-                let folderURL = try FSHelper.createProjectFolderStructure(root: parent, folderName: safeName)
-                newProject.rootFolder = folderURL
-                newProject.saveToFolder()
+        // Créer le dossier et l'arborescence si demandé
+        if createFolderStructure {
+            let targetFolder = folder ?? SettingsManager.shared.defaultFolder
+            let didStart = SettingsManager.shared.startAccessingFolder(targetFolder)
+            do {
+                if let parent = targetFolder?.url {
+                    let safeName = FSHelper.sanitizedFolderName(from: newProject.title)
+                    let folderURL = try FSHelper.createProjectFolderStructure(root: parent, folderName: safeName)
+                    newProject.rootFolderPath = folderURL.path
+                    newProject.hasFolderStructure = true
+                }
+            } catch {
+                print("Erreur création dossier projet : \(error)")
             }
-        } catch {
-            print("Erreur création dossier projet : \(error)")
+            if didStart { SettingsManager.shared.stopAccessingFolder(targetFolder) }
         }
-        if didStart { SettingsManager.shared.stopAccessingFolder() }
 
         // Update data structures on main thread
         DispatchQueue.main.async {
@@ -67,6 +97,7 @@ class ProjectStore: ObservableObject {
             let cat = newProject.categoryID ?? ProjectCategory.all.id
             self.projectsByCategory[cat, default: []].append(newProject)
             self.selection = newProject.id
+            self.saveProjects()
         }
     }
 
@@ -75,20 +106,21 @@ class ProjectStore: ObservableObject {
         return projects.first { $0.id == id }
     }
 
-    func scanForExistingProjects(forcePath: URL? = nil) {
-        // Run file system scanning on background thread to avoid blocking the UI.
-        let folderURL = forcePath ?? SettingsManager.shared.projectsFolder
-        guard let parent = folderURL else { return }
+    /// Synchronise avec le dossier de projets (optionnel, pour retrouver des dossiers existants)
+    func syncWithProjectsFolder() {
+        guard let parent = SettingsManager.shared.projectsFolder else {
+            print("ℹ️ Aucun dossier de projets configuré")
+            return
+        }
 
         DispatchQueue.global(qos: .userInitiated).async {
             let didStart = SettingsManager.shared.startAccessingFolder()
-            var found: [Project] = []
+            var foundFolders: [String: URL] = [:] // path -> URL
+            
             do {
                 let contents = try FileManager.default.contentsOfDirectory(at: parent, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
                 for url in contents where url.hasDirectoryPath {
-                    if let project = Project.fromFolder(url: url) {
-                        found.append(project)
-                    }
+                    foundFolders[url.path] = url
                 }
             } catch {
                 print("Erreur scan dossier projets : \(error)")
@@ -96,13 +128,17 @@ class ProjectStore: ObservableObject {
             if didStart { SettingsManager.shared.stopAccessingFolder() }
 
             DispatchQueue.main.async {
-                self.projects = found
-                // rebuild mapping cache
-                self.projectsByCategory = [:]
-                for p in found {
-                    let cat = p.categoryID ?? ProjectCategory.all.id
-                    self.projectsByCategory[cat, default: []].append(p)
+                // Mettre à jour les chemins des projets existants si le dossier existe
+                for project in self.projects {
+                    if let path = project.rootFolderPath, foundFolders[path] != nil {
+                        // Le dossier existe toujours, tout va bien
+                        continue
+                    }
                 }
+                
+                // Note: On ne supprime PAS les projets dont le dossier n'existe plus
+                // Ils restent dans la liste pour être accessibles même si déconnectés
+                print("✅ Synchronisation terminée")
             }
         }
     }
@@ -123,7 +159,7 @@ class ProjectStore: ObservableObject {
         // Reassign projects with removed category to .all
         for project in projects where project.categoryID == category.id {
             project.categoryID = ProjectCategory.all.id
-            project.saveToFolder()
+            project.touch()
             // update cache
             DispatchQueue.main.async {
                 // remove from old
@@ -133,6 +169,7 @@ class ProjectStore: ObservableObject {
             }
         }
         saveCategories()
+        saveProjects()
     }
 
     func renameCategory(_ category: ProjectCategory, to newName: String) {
@@ -144,12 +181,13 @@ class ProjectStore: ObservableObject {
     func assign(_ project: Project, to category: ProjectCategory) {
         let oldCat = project.categoryID ?? ProjectCategory.all.id
         project.categoryID = category.id
-        project.saveToFolder()
+        project.touch()
         DispatchQueue.main.async {
             // update cache: remove from old list and add to new
             self.projectsByCategory[oldCat]?.removeAll(where: { $0.id == project.id })
             self.projectsByCategory[category.id, default: []].append(project)
             self.objectWillChange.send()
+            self.saveProjects()
         }
     }
 
@@ -202,19 +240,102 @@ class ProjectStore: ObservableObject {
             categories = [ProjectCategory.all]
         }
     }
+    
+    // MARK: - Statuses Management
+    
+    private func loadStatuses() {
+        guard let data = UserDefaults.standard.data(forKey: statusesKey) else {
+            statuses = ProjectStatus.defaultStatuses
+            saveStatuses()
+            return
+        }
+        do {
+            statuses = try JSONDecoder().decode([ProjectStatus].self, from: data)
+            if statuses.isEmpty {
+                statuses = ProjectStatus.defaultStatuses
+                saveStatuses()
+            }
+        } catch {
+            print("Erreur chargement statuts : \(error)")
+            statuses = ProjectStatus.defaultStatuses
+            saveStatuses()
+        }
+    }
+    
+    private func saveStatuses() {
+        do {
+            let data = try JSONEncoder().encode(statuses)
+            UserDefaults.standard.set(data, forKey: statusesKey)
+        } catch {
+            print("Erreur sauvegarde statuts : \(error)")
+        }
+    }
+    
+    func addStatus(name: String, colorHex: String) {
+        let newOrder = (statuses.map { $0.order }.max() ?? 0) + 1
+        let newStatus = ProjectStatus(name: name, colorHex: colorHex, order: newOrder, isSystem: false)
+        statuses.append(newStatus)
+        statuses.sort { $0.order < $1.order }
+        saveStatuses()
+    }
+    
+    func removeStatus(_ status: ProjectStatus) {
+        guard !status.isSystem else { return }
+        statuses.removeAll { $0.id == status.id }
+        
+        // Réassigner les projets avec ce statut au statut par défaut
+        for project in projects where project.statusID == status.id {
+            project.statusID = ProjectStatus.notStarted.id
+            project.touch()
+        }
+        
+        saveStatuses()
+        saveProjects()
+    }
+    
+    func renameStatus(_ status: ProjectStatus, to newName: String) {
+        guard let idx = statuses.firstIndex(where: { $0.id == status.id }) else { return }
+        statuses[idx].name = newName
+        saveStatuses()
+    }
+    
+    func changeStatusColor(_ status: ProjectStatus, to colorHex: String) {
+        guard let idx = statuses.firstIndex(where: { $0.id == status.id }) else { return }
+        statuses[idx].colorHex = colorHex
+        saveStatuses()
+    }
+    
+    func moveStatuses(from source: IndexSet, to destination: Int) {
+        var temp = statuses
+        temp.move(fromOffsets: source, toOffset: destination)
+        // Recalculer les ordres
+        for (index, _) in temp.enumerated() {
+            temp[index].order = index
+        }
+        statuses = temp
+        saveStatuses()
+    }
+    
+    func status(with id: UUID?) -> ProjectStatus? {
+        guard let id = id else { return nil }
+        return statuses.first { $0.id == id }
+    }
 
-    func removeProject(_ project: Project) {
-        // Attempt to delete folder contents if present
-        if let folder = project.rootFolder {
+    func removeProject(_ project: Project, deleteFolderOnDisk: Bool = true) {
+        // Supprimer le dossier physique uniquement si demandé
+        if deleteFolderOnDisk, let folder = project.rootFolder {
             let didStart = SettingsManager.shared.startAccessingFolder()
             do {
                 if FileManager.default.fileExists(atPath: folder.path) {
                     try FileManager.default.removeItem(at: folder)
+                    print("✅ Dossier supprimé du disque: \(folder.path)")
                 }
             } catch {
-                print("Erreur suppression dossier projet: \(error)")
+                print("❌ Erreur suppression dossier projet: \(error)")
             }
             if didStart { SettingsManager.shared.stopAccessingFolder() }
+        } else {
+            print("ℹ️ Projet supprimé de l'app uniquement (dossier conservé sur le disque)")
         }
 
         // Also remove it from in-memory data structures (projects array and per-category cache)
@@ -251,12 +372,157 @@ class ProjectStore: ObservableObject {
             // clear selection if needed
             if self.selection == project.id { self.selection = nil }
             self.objectWillChange.send()
+            self.saveProjects()
         }
     }
 
-    func deleteProject(withId id: UUID) {
+    func deleteProject(withId id: UUID, deleteFolderOnDisk: Bool = true) {
         if let proj = projects.first(where: { $0.id == id }) {
-            removeProject(proj)
+            removeProject(proj, deleteFolderOnDisk: deleteFolderOnDisk)
         }
+    }
+    
+    // MARK: - Import/Export
+    
+    /// Exporte tous les projets vers un fichier
+    func exportProjects(to url: URL) throws {
+        try PersistenceManager.shared.exportProjects(projects, to: url)
+    }
+    
+    /// Importe des projets depuis un fichier (en fusionnant avec les projets existants)
+    func importProjects(from url: URL, merge: Bool = true) throws {
+        let importedProjects = try PersistenceManager.shared.importProjects(from: url)
+        
+        if merge {
+            // Fusionner: ajouter uniquement les projets avec des IDs non existants
+            let existingIDs = Set(projects.map { $0.id })
+            let newProjects = importedProjects.filter { !existingIDs.contains($0.id) }
+            
+            DispatchQueue.main.async {
+                self.projects.append(contentsOf: newProjects)
+                self.rebuildProjectsByCategory()
+                self.saveProjects()
+            }
+        } else {
+            // Remplacer tous les projets
+            DispatchQueue.main.async {
+                self.projects = importedProjects
+                self.rebuildProjectsByCategory()
+                self.saveProjects()
+            }
+        }
+    }
+    
+    /// Crée la structure de dossiers pour un projet existant
+    func createFolderStructure(for project: Project) {
+        guard let parent = SettingsManager.shared.projectsFolder else {
+            print("❌ Aucun dossier de projets configuré")
+            return
+        }
+        
+        let didStart = SettingsManager.shared.startAccessingFolder()
+        defer { if didStart { SettingsManager.shared.stopAccessingFolder() } }
+        
+        do {
+            let safeName = FSHelper.sanitizedFolderName(from: project.title)
+            let folderURL = try FSHelper.createProjectFolderStructure(root: parent, folderName: safeName)
+            
+            DispatchQueue.main.async {
+                project.rootFolderPath = folderURL.path
+                project.hasFolderStructure = true
+                project.touch()
+                self.saveProjects()
+            }
+        } catch {
+            print("❌ Erreur création structure dossier: \(error)")
+        }
+    }
+    
+    /// Scanne le dossier de projets et importe les dossiers qui ont la bonne structure mais ne sont pas répertoriés
+    func discoverAndImportExistingProjects() -> Int {
+        guard let parent = SettingsManager.shared.projectsFolder else {
+            print("❌ Aucun dossier de projets configuré")
+            return 0
+        }
+        
+        let didStart = SettingsManager.shared.startAccessingFolder()
+        defer { if didStart { SettingsManager.shared.stopAccessingFolder() } }
+        
+        var importedCount = 0
+        
+        do {
+            // Récupérer tous les dossiers
+            let contents = try FileManager.default.contentsOfDirectory(at: parent, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
+            
+            // Filtrer uniquement les dossiers
+            let folders = contents.filter { url in
+                var isDir: ObjCBool = false
+                return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
+            }
+            
+            // Vérifier quels dossiers ne sont pas déjà dans nos projets
+            let existingPaths = Set(projects.compactMap { $0.rootFolderPath })
+            
+            for folderURL in folders {
+                let path = folderURL.path
+                
+                // Si déjà répertorié, ignorer
+                if existingPaths.contains(path) { continue }
+                
+                // Vérifier si le dossier a la structure attendue
+                if hasValidProjectStructure(at: folderURL) {
+                    // Créer un nouveau projet
+                    let project = Project(
+                        title: folderURL.lastPathComponent,
+                        rootFolderPath: path,
+                        isEditing: false,
+                        hasFolderStructure: true
+                    )
+                    
+                    DispatchQueue.main.async {
+                        self.projects.append(project)
+                        let cat = project.categoryID ?? ProjectCategory.all.id
+                        self.projectsByCategory[cat, default: []].append(project)
+                    }
+                    
+                    importedCount += 1
+                    print("✅ Projet découvert et importé: \(project.title)")
+                }
+            }
+            
+            if importedCount > 0 {
+                DispatchQueue.main.async {
+                    self.saveProjects()
+                }
+            }
+            
+        } catch {
+            print("❌ Erreur lors du scan des dossiers: \(error)")
+        }
+        
+        return importedCount
+    }
+    
+    /// Vérifie si un dossier a la structure de projet attendue
+    private func hasValidProjectStructure(at url: URL) -> Bool {
+        let requiredFolders = [
+            "00 IN",
+            "01 ASSETS",
+            "05 AEP",
+            "07 SORTIES"
+        ]
+        
+        // On vérifie qu'au moins quelques dossiers clés existent
+        var foundCount = 0
+        for folder in requiredFolders {
+            let folderURL = url.appendingPathComponent(folder)
+            var isDir: ObjCBool = false
+            if FileManager.default.fileExists(atPath: folderURL.path, isDirectory: &isDir) && isDir.boolValue {
+                foundCount += 1
+            }
+        }
+        
+        // Si on trouve au moins 3 des 4 dossiers clés, on considère que c'est un projet valide
+        return foundCount >= 3
     }
 }
