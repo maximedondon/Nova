@@ -327,9 +327,10 @@ struct PreferencesView: View {
         let defaults = UserDefaults.standard
         // Remove known keys (bookmark and any app-specific keys)
         defaults.removeObject(forKey: "projectsFolderBookmark")
+        defaults.removeObject(forKey: "projectFolders.v2")
         defaults.synchronize()
-        // Reflect in SettingsManager
-        SettingsManager.shared.setProjectsFolder(URL?.none!)
+        // Vider les dossiers dans SettingsManager
+        SettingsManager.shared.projectFolders.removeAll()
     }
 
     private func clearCaches() {

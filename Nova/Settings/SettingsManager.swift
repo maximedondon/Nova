@@ -53,16 +53,12 @@ class SettingsManager: ObservableObject {
         
         // Migration: charger l'ancien système
         if let bookmarkData = UserDefaults.standard.data(forKey: legacyBookmarkKey) {
-            do {
-                let folder = ProjectFolder(name: "Projets", bookmarkData: bookmarkData, isDefault: true)
-                projectFolders = [folder]
-                saveFolders()
-                print("✅ Migration de l'ancien dossier vers le nouveau système")
-                // Supprimer l'ancien bookmark
-                UserDefaults.standard.removeObject(forKey: legacyBookmarkKey)
-            } catch {
-                print("❌ Erreur migration ancien dossier: \(error)")
-            }
+            let folder = ProjectFolder(name: "Projets", bookmarkData: bookmarkData, isDefault: true)
+            projectFolders = [folder]
+            saveFolders()
+            print("✅ Migration de l'ancien dossier vers le nouveau système")
+            // Supprimer l'ancien bookmark
+            UserDefaults.standard.removeObject(forKey: legacyBookmarkKey)
         }
     }
     
