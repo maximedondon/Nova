@@ -138,29 +138,39 @@ struct ContentView: View {
         }
 
         return List(selection: $localSelection) {
-            ForEach(visibleProjects, id: \.id) { project in
-                NavigationLink(value: project.id) {
-                    let cat = store.category(with: project.categoryID)
-                    SidebarRow(project: project, categoryName: cat?.name, categoryImage: cat?.systemImage, onSelect: { id in
-                        localSelection = id
-                        withTransaction(Transaction(animation: nil)) { store.selection = id }
-                    })
-                    .contextMenu {
-                        Button {
-                            startEditingProject(project.id)
-                        } label: { Label("Renommer", systemImage: "pencil") }
-                        
+            ForEach(Array(visibleProjects.enumerated()), id: \.element.id) { index, project in
+                VStack(spacing: 0) {
+                    NavigationLink(value: project.id) {
+                        let cat = store.category(with: project.categoryID)
+                        SidebarRow(project: project, categoryName: cat?.name, categoryImage: cat?.systemImage, onSelect: { id in
+                            localSelection = id
+                            withTransaction(Transaction(animation: nil)) { store.selection = id }
+                        })
+                        .contextMenu {
+                            Button {
+                                startEditingProject(project.id)
+                            } label: { Label("Renommer", systemImage: "pencil") }
+                            
+                            Divider()
+                            
+                            Button(role: .destructive) {
+                                projectToDelete = project.id
+                                showDeleteConfirm = true
+                            } label: { Label("Supprimer", systemImage: "trash") }
+                        }
+                    }
+                    .tag(project.id)
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 6)
+                    
+                    // Divider sur toute la largeur (sauf pour le dernier élément)
+                    if index < visibleProjects.count - 1 {
                         Divider()
-                        
-                        Button(role: .destructive) {
-                            projectToDelete = project.id
-                            showDeleteConfirm = true
-                        } label: { Label("Supprimer", systemImage: "trash") }
+                            .padding(.leading, 0)
                     }
                 }
-                .tag(project.id)
-                .padding(.vertical, 6)
-                .padding(.horizontal, 6)
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                .listRowSeparator(.hidden)
             }
         }
         .frame(minWidth: 260, idealWidth: 340, maxWidth: 420)
@@ -188,33 +198,78 @@ struct SidebarRow: View {
     @EnvironmentObject var store: ProjectStore
 
     var body: some View {
-        VStack(alignment: .leading) {
-            Button(action: { onSelect(project.id) }) {
-                Text(project.title)
-                    .foregroundColor(.primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
-
-            HStack(spacing: 6) {
+        Button(action: { onSelect(project.id) }) {
+            HStack(spacing: 12) {
+                // Indicateur de statut à gauche (point coloré)
                 if let status = store.status(with: project.statusID) {
-                    Text(status.name)
-                        .font(.caption2)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(status.color.opacity(0.2))
-                        .foregroundColor(status.color)
-                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    Circle()
+                        .fill(status.color)
+                        .frame(width: 8, height: 8)
                 }
+                
+                // Contenu principal
+                VStack(alignment: .leading, spacing: 4) {
+                    // Titre du projet
+                    Text(project.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+                    
+                    // Métadonnées (catégorie + statut)
+                    HStack(spacing: 6) {
+                        // Catégorie
+                        if let cname = categoryName, let image = categoryImage {
+                            Label {
+                                Text(cname)
+                                    .font(.system(size: 10))
+                                    .lineLimit(1)
+                            } icon: {
+                                Image(systemName: image)
+                                    .font(.system(size: 9))
+                            }
+                            .foregroundStyle(.secondary)
+                            .fixedSize()
+                        }
+                        
+                        // Séparateur
+                        if categoryName != nil, store.status(with: project.statusID) != nil {
+                            Text("•")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.tertiary)
+                        }
+                        
+                        // Badge de statut
+                        if let status = store.status(with: project.statusID) {
+                            Text(status.name)
+                                .font(.system(size: 10, weight: .medium))
+                                .lineLimit(1)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(status.color.opacity(0.15))
+                                .foregroundColor(status.color)
+                                .clipShape(Capsule())
+                                .fixedSize()
+                        }
+                    }
+                }
+                
+                Spacer(minLength: 0)
+                
+                // Indicateur chevron (optionnel, apparaît au hover)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+                    .opacity(0)
             }
-            if let cname = categoryName, let image = categoryImage {
-                Label(cname, systemImage: image)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.primary.opacity(0.0001))
+            )
         }
+        .buttonStyle(.plain)
         .contentShape(Rectangle())
-        .onTapGesture { onSelect(project.id) }
         .onDrag { NSItemProvider(object: project.id.uuidString as NSString) }
     }
 }

@@ -45,7 +45,7 @@ struct OnboardingView: View {
                     disabled: selectedFolder == nil
                 ) {
                     guard let folder = selectedFolder else { return }
-                    SettingsManager.shared.setProjectsFolder(folder)
+                    try? SettingsManager.shared.addFolder(folder, name: "Projets", setAsDefault: true)
                     store.syncWithProjectsFolder()
                     isPresented = false
                 }
