@@ -2,7 +2,7 @@
 ![Logo](https://i.ibb.co/jPXN57hK/256x256.png)
 
 
-# Nova - Gestionnaire de Projets pour Motion Design
+# Nova - Gestionnaire de Projets en Motion Design
 
 **Nova** est une application macOS native pour gérer vos projets de motion design, animation et production vidéo. Conçue pour s'intégrer parfaitement dans votre workflow After Effects, Nova vous permet de suivre l'état de vos projets, organiser vos fichiers et accéder rapidement à vos ressources.
 
@@ -160,47 +160,3 @@ Les contributions sont les bienvenues ! N'hésitez pas à :
 ## 📄 Licence
 
 Ce projet est sous licence MIT. Voir le fichier LICENSE pour plus de détails.
-
-## 👤 Auteur
-
-**Maxime Dondon**
-- Email: [votre-email]
-- LinkedIn: [votre-linkedin]
-
-## 🙏 Remerciements
-
-Merci à tous les motion designers et animateurs qui ont inspiré ce projet !
-
----
-
-**Nova** - Gérez vos projets de motion design avec élégance 🚀
-
-
-What if managing motion design projects were simpler ?
-
-
-
-## Features
-
-- Automatic project folders creation
-- Open the latest after effects file by date
-- Status managing 
-- Tags
-
-
-## Roadmap
-
-- Crossplatform
-- 3D files support
-- Onboarding
-
-
-## Feedback
-
-If you have any feedback, please reach out to us at feedback@maximedondon.fr
-
-
-## Authors
-
-- [@maximedondon](https://www.github.com/maximedondon)
-
